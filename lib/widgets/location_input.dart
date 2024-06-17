@@ -1,7 +1,9 @@
 import 'dart:convert';
 
 import 'package:favourite_places/Modal/place.dart';
+import 'package:favourite_places/screens/map.dart';
 import 'package:flutter/material.dart';
+import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:location/location.dart';
 import 'package:http/http.dart' as http;
 
@@ -27,6 +29,22 @@ class _LocationInputState extends State<LocationInput> {
     final lng = _pickedLocation!.longitude;
 
     return 'https://maps.googleapis.com/maps/api/staticmap?center$lat,$lng=&zoom=16&size=600x300&maptype=roadmap&markers=color:red%7Clabel:A%7C$lat,$lng&key=AlzaSyDLcwxUggpPZo81cbH0TB4Crq5SJjtj4ag&signature=YOUR_SIGNATURE';
+  }
+
+  Future<void> _savePlace(double latittude, double longitude) async {
+    final url = Uri.parse(
+        'https://maps.googleapis.com/maps/api/geocode/json?latlng=$latittude,$longitude&key=AlzaSyDLcwxUggpPZo81cbH0TB4Crq5SJjtj4ag');
+    final response = await http.get(url);
+    final resData = json.decode(response.body);
+    final address = resData['results'][0]['formatted_address'];
+
+    setState(() {
+      _pickedLocation = PlaceLocation(
+          latitude: latittude, longitude: longitude, address: address);
+      _isGettingLocation = false;
+    });
+
+    widget.onSelectLocation(_pickedLocation!);
   }
 
   void _getCurrentLocation() async {
@@ -67,19 +85,7 @@ class _LocationInputState extends State<LocationInput> {
     if (lat == null || lng == null) {
       return;
     }
-    final url = Uri.parse(
-        'https://maps.googleapis.com/maps/api/geocode/json?latlng=$lat,$lng&key=AlzaSyDLcwxUggpPZo81cbH0TB4Crq5SJjtj4ag');
-    final response = await http.get(url);
-    final resData = json.decode(response.body);
-    final address = resData['results'][0]['formatted_address'];
-
-    setState(() {
-      _pickedLocation =
-          PlaceLocation(latitude: lat, longitude: lng, address: address);
-      _isGettingLocation = false;
-    });
-
-    widget.onSelectLocation(_pickedLocation!);
+    _savePlace(lat, lng);
     // print(locationData.latitude);
     // print(locationData.longitude);
   }
@@ -88,6 +94,17 @@ class _LocationInputState extends State<LocationInput> {
 //google maps geo coding api - making latitude and longitude coordinates into a human readable form (we could use reverse coding)
 // reverse geocoding documentation - https://developers.google.com/maps/documentation/geocoding/requests-reverse-geocoding
 // AlzaSyDLcwxUggpPZo81cbH0TB4Crq5SJjtj4ag  - google maps api key
+
+  void _selectOnMap() async {
+    final _pickedLocation = await Navigator.of(context).push<LatLng>(
+      MaterialPageRoute(builder: (ctx) => const MapScreen()),
+    ); //we have picked location of latlng type
+    if (_pickedLocation == null) {
+      return;
+    }
+    _savePlace(_pickedLocation.latitude, _pickedLocation.longitude);
+  }
+
   @override
   Widget build(BuildContext context) {
     Widget previewContent = Text(
@@ -134,7 +151,7 @@ class _LocationInputState extends State<LocationInput> {
               label: const Text('Get current location'),
             ),
             TextButton.icon(
-              onPressed: () {},
+              onPressed: _selectOnMap,
               icon: const Icon(Icons.map),
               label: const Text('Selected on map'),
             ),
